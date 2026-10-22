@@ -1,0 +1,79 @@
+spring:
+  application:
+    name: llm-research
+  main:
+    web-application-type: none
+
+research:
+  runner:
+    enabled: true
+  repetitions: 1
+  questions-file: ./config/questions.csv
+  output-directory: ./output
+  request-timeout-seconds: 120
+  # Tentativas totais por chamada (1 = sem retentativa; 3 = até 3 tentativas).
+  # Em HTTP 429: no máx. 2 tentativas (8s → 16s) e o provedor é pulado no restante.
+  max-attempts: 3
+  # Espera entre tentativas (ms) para erros transitórios (não 429).
+  retry-delay-ms: 2000
+  # Pausa entre chamadas do MESMO provedor (ms).
+  inter-request-delay-ms: 2500
+  # Provedores em paralelo (APIs diferentes). Dentro de cada provedor continua sequencial.
+  parallel-providers: true
+
+  providers:
+    openai:
+      enabled: true
+      api-key: ${OPENAI_API_KEY:}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      model: ${OPENAI_MODEL:gpt-4.1-mini}
+
+    anthropic:
+      enabled: true
+      api-key: ${ANTHROPIC_API_KEY:}
+      base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+      model: ${ANTHROPIC_MODEL:claude-sonnet-5-5}
+
+    gemini:
+      enabled: true
+      api-key: ${GEMINI_API_KEY:}
+      base-url: ${GEMINI_BASE_URL:}
+      model: ${GEMINI_MODEL:gemini-flash-latest}
+
+    grok:
+      enabled: true
+      api-key: ${GROK_API_KEY:}
+      base-url: ${GROK_BASE_URL:https://api.x.ai/v1}
+      model: ${GROK_MODEL:grok-4.7}
+
+    # Conta com rate limit 0 req/min (HTTP 429). Reative só depois de liberar quota no console Mistral.
+    mistral:
+      enabled: false
+      api-key: ${MISTRAL_API_KEY:}
+      base-url: ${MISTRAL_BASE_URL:https://api.mistral.ai}
+      model: ${MISTRAL_MODEL:mistral-small-latest}
+
+    # API compatível com OpenAI — https://api.deepseek.com
+    deepseek:
+      enabled: false
+      api-key: ${DEEPSEEK_API_KEY:}
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com/v1}
+      model: ${DEEPSEEK_MODEL:deepseek-chat}
+
+    perplexity:
+      enabled: true
+      api-key: ${PERPLEXITY_API_KEY:}
+      base-url: ${PERPLEXITY_BASE_URL:https://api.perplexity.ai/v1}
+      model: ${PERPLEXITY_MODEL:perplexity/sonar}
+
+    qwen:
+      enabled: true
+      api-key: ${QWEN_API_KEY:}
+      base-url: ${QWEN_BASE_URL:https://dashscope-intl.aliyuncs.com/compatible-mode/v1}
+      model: ${QWEN_MODEL:qwen-plus}
+
+    llama:
+      enabled: true
+      api-key: ${LLAMA_API_KEY:}
+      base-url: ${LLAMA_BASE_URL:https://api.meta.ai/v1}
+      model: ${LLAMA_MODEL:muse-spark-1.3}
