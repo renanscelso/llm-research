@@ -7,6 +7,7 @@ spring:
 research:
   runner:
     enabled: true
+  # Com 500 repetições × 2 perguntas × 7 LLMs ≈ 7000 chamadas (horas de execução).
   repetitions: 1
   questions-file: ./config/questions.csv
   output-directory: ./output
@@ -16,10 +17,12 @@ research:
   max-attempts: 3
   # Espera entre tentativas (ms) para erros transitórios (não 429).
   retry-delay-ms: 2000
-  # Pausa entre chamadas do MESMO provedor (ms).
-  inter-request-delay-ms: 2500
+  # Pausa entre chamadas do MESMO provedor (ms). Use 0–500 em rodadas grandes.
+  inter-request-delay-ms: 300
   # Provedores em paralelo (APIs diferentes). Dentro de cada provedor continua sequencial.
   parallel-providers: true
+  # Grava disco a cada N resultados (0 = só no final). Evita reescrever XLSX a cada linha.
+  flush-every-n: 50
 
   providers:
     openai:

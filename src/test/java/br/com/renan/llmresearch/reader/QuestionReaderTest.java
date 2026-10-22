@@ -35,6 +35,7 @@ class QuestionReaderTest {
                 0L,
                 0L,
                 false,
+                        0,
                 Map.of()
         );
         reader = new QuestionReader(properties);

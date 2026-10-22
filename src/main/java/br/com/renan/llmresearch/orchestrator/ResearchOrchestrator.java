@@ -67,10 +67,12 @@ public class ResearchOrchestrator {
         boolean parallel = properties.parallelProviders() && clients.size() > 1;
         log.info("Execução {} iniciada com {} pergunta(s), {} provedor(es), {} repetição(ões), paralelo={}.",
                 executionId, questions.size(), clients.size(), properties.repetitions(), parallel);
+        int plannedCalls = questions.size() * clients.size() * properties.repetitions();
         System.out.println("ID da execução: " + executionId);
         System.out.println("Perguntas: " + questions.size());
         System.out.println("Provedores habilitados: " + clients.size());
         System.out.println("Repetições: " + properties.repetitions());
+        System.out.println("Chamadas previstas: " + plannedCalls);
         System.out.println("Paralelo entre provedores: " + (parallel ? "sim" : "não"));
         System.out.println("Pasta de saída: " + outputDirectory.toAbsolutePath());
         System.out.println("Arquivos: results.xlsx | results.csv | results.jsonl | results.json");
@@ -83,14 +85,17 @@ public class ResearchOrchestrator {
 
         AtomicInteger successCount = new AtomicInteger();
         AtomicInteger errorCount = new AtomicInteger();
+        AtomicInteger completedCalls = new AtomicInteger();
         List<ResearchResult> results = new ArrayList<>();
 
         try {
             if (parallel) {
-                runProvidersInParallel(clients, questions, executionId, successCount, errorCount, results);
+                runProvidersInParallel(
+                        clients, questions, executionId, successCount, errorCount, completedCalls, plannedCalls, results);
             } else {
                 for (LlmClient client : clients) {
-                    runProvider(client, questions, executionId, successCount, errorCount, results);
+                    runProvider(
+                            client, questions, executionId, successCount, errorCount, completedCalls, plannedCalls, results);
                 }
             }
         } finally {
@@ -122,6 +127,8 @@ public class ResearchOrchestrator {
             String executionId,
             AtomicInteger successCount,
             AtomicInteger errorCount,
+            AtomicInteger completedCalls,
+            int plannedCalls,
             List<ResearchResult> results
     ) throws Exception {
         // Uma thread por provedor: I/O-bound, virtual threads no Java 21
@@ -130,7 +137,16 @@ public class ResearchOrchestrator {
             for (LlmClient client : clients) {
                 Callable<List<ResearchResult>> task = () -> {
                     List<ResearchResult> providerResults = new ArrayList<>();
-                    runProvider(client, questions, executionId, successCount, errorCount, providerResults);
+                    runProvider(
+                            client,
+                            questions,
+                            executionId,
+                            successCount,
+                            errorCount,
+                            completedCalls,
+                            plannedCalls,
+                            providerResults
+                    );
                     return providerResults;
                 };
                 futures.add(executor.submit(task));
@@ -156,6 +172,8 @@ public class ResearchOrchestrator {
             String executionId,
             AtomicInteger successCount,
             AtomicInteger errorCount,
+            AtomicInteger completedCalls,
+            int plannedCalls,
             List<ResearchResult> results
     ) throws Exception {
         println("---- Provedor: " + client.providerId()
@@ -171,12 +189,15 @@ public class ResearchOrchestrator {
                 }
                 firstCallForProvider = false;
 
-                println("Consultando " + client.providerId()
-                        + " | pergunta " + question.id()
-                        + " | repetição " + repetition);
+                // Em rodadas grandes, evita spam no console a cada linha
+                if (properties.repetitions() <= 5 || repetition == 1 || repetition % 25 == 0) {
+                    println("Consultando " + client.providerId()
+                            + " | pergunta " + question.id()
+                            + " | repetição " + repetition);
+                }
 
                 ResearchResult result = client.ask(question, executionId, repetition);
-                recordResult(result, results, successCount, errorCount);
+                recordResult(result, results, successCount, errorCount, completedCalls, plannedCalls);
 
                 if (RetryingLlmClient.isRateLimited(result)) {
                     println("Provedor " + client.providerId()
@@ -189,7 +210,9 @@ public class ResearchOrchestrator {
                             repetition,
                             executionId,
                             results,
-                            errorCount
+                            errorCount,
+                            completedCalls,
+                            plannedCalls
                     );
                     break questionLoop;
                 }
@@ -201,23 +224,41 @@ public class ResearchOrchestrator {
             ResearchResult result,
             List<ResearchResult> results,
             AtomicInteger successCount,
-            AtomicInteger errorCount
+            AtomicInteger errorCount,
+            AtomicInteger completedCalls,
+            int plannedCalls
     ) throws Exception {
         synchronized (results) {
             results.add(result);
         }
         resultWriter.write(result);
 
+        int done = completedCalls.incrementAndGet();
         if (result.isSuccess()) {
             successCount.incrementAndGet();
-            println("OK " + result.provider() + " pergunta " + result.questionId()
-                    + " (" + result.latencyMs() + " ms)");
+            if (properties.repetitions() <= 5 || result.repetition() == 1 || result.repetition() % 25 == 0) {
+                println("OK " + result.provider() + " pergunta " + result.questionId()
+                        + " rep " + result.repetition()
+                        + " (" + result.latencyMs() + " ms)");
+            }
         } else {
             errorCount.incrementAndGet();
-            println("ERRO " + result.provider() + " pergunta " + result.questionId()
-                    + ": " + result.error());
-            log.warn("Falha em {} pergunta {} repetição {}: {}",
-                    result.provider(), result.questionId(), result.repetition(), result.error());
+            boolean skipped = result.error() != null && result.error().startsWith("Pulado:");
+            if (!skipped || properties.repetitions() <= 5 || result.repetition() % 25 == 0) {
+                println("ERRO " + result.provider() + " pergunta " + result.questionId()
+                        + " rep " + result.repetition()
+                        + ": " + result.error());
+            }
+            if (!skipped) {
+                log.warn("Falha em {} pergunta {} repetição {}: {}",
+                        result.provider(), result.questionId(), result.repetition(), result.error());
+            }
+        }
+
+        if (plannedCalls >= 50 && (done % 50 == 0 || done == plannedCalls)) {
+            println("Progresso: " + done + "/" + plannedCalls
+                    + " | ok=" + successCount.get()
+                    + " | erro=" + errorCount.get());
         }
     }
 
@@ -231,7 +272,9 @@ public class ResearchOrchestrator {
             int failedRepetition,
             String executionId,
             List<ResearchResult> results,
-            AtomicInteger errorCount
+            AtomicInteger errorCount,
+            AtomicInteger completedCalls,
+            int plannedCalls
     ) throws Exception {
         String skipMessage = "Pulado: rate limit (HTTP 429) anterior neste provedor.";
         for (int qIndex = failedQuestionIndex; qIndex < questions.size(); qIndex++) {
@@ -247,13 +290,11 @@ public class ResearchOrchestrator {
                         skipMessage,
                         0L
                 );
-                synchronized (results) {
-                    results.add(skipped);
+                recordResult(skipped, results, new AtomicInteger(), errorCount, completedCalls, plannedCalls);
+                if (properties.repetitions() <= 5 || repetition % 25 == 0) {
+                    println("PULADO " + client.providerId() + " pergunta " + question.id()
+                            + " repetição " + repetition);
                 }
-                resultWriter.write(skipped);
-                errorCount.incrementAndGet();
-                println("PULADO " + client.providerId() + " pergunta " + question.id()
-                        + " repetição " + repetition);
             }
         }
     }

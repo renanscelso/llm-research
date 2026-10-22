@@ -22,6 +22,7 @@ public record ResearchProperties(
         long retryDelayMs,
         long interRequestDelayMs,
         boolean parallelProviders,
+        int flushEveryN,
         Map<String, ProviderProperties> providers
 ) {
 
@@ -43,6 +44,8 @@ public record ResearchProperties(
         maxAttempts = maxAttempts <= 0 ? 3 : maxAttempts;
         retryDelayMs = retryDelayMs < 0 ? 1000L : retryDelayMs;
         interRequestDelayMs = interRequestDelayMs < 0 ? 0L : interRequestDelayMs;
+        // 0 = só no close; default 50 (importante com centenas de repetições)
+        flushEveryN = flushEveryN < 0 ? 50 : flushEveryN;
         providers = providers == null
                 ? Map.of()
                 : Map.copyOf(new LinkedHashMap<>(providers));

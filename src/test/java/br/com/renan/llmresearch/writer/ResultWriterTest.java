@@ -39,6 +39,7 @@ class ResultWriterTest {
                 0L,
                 0L,
                 false,
+                        0,
                 Map.of()
         );
 

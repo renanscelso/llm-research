@@ -79,6 +79,7 @@ public class ResultWriter implements AutoCloseable {
     private Path jsonFile;
     private final List<ResearchResult> buffer = new ArrayList<>();
     private int rowCount;
+    private int writesSinceFlush;
     private boolean closed = true;
 
     public ResultWriter(ResearchProperties properties) {
@@ -113,6 +114,7 @@ public class ResultWriter implements AutoCloseable {
         this.textStyle = createTextStyle(workbook);
         writeHeader();
         this.rowCount = 0;
+        this.writesSinceFlush = 0;
         this.closed = false;
         flushSafely();
         return outputDirectory;
@@ -127,8 +129,14 @@ public class ResultWriter implements AutoCloseable {
         buffer.add(result);
         appendExcelRow(result);
         rowCount++;
+        writesSinceFlush++;
         updateAutoFilter();
-        flushSafely();
+
+        int every = properties.flushEveryN();
+        if (every > 0 && writesSinceFlush >= every) {
+            flushSafely();
+            writesSinceFlush = 0;
+        }
     }
 
     /** Diretório da execução ({@code output/yyyyMMdd-HHmmss}). */

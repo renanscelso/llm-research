@@ -34,6 +34,7 @@ class LlmProvidersConfigurationTest {
                 0L,
                 0L,
                 false,
+                        0,
                 providers
         );
 
@@ -66,6 +67,7 @@ class LlmProvidersConfigurationTest {
                 0L,
                 0L,
                 false,
+                        0,
                 providers
         );
 

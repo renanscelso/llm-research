@@ -89,6 +89,7 @@ class ResearchOrchestratorTest {
                 0L,
                 0L,
                 false,
+                        0,
                 Map.of()
         );
 
@@ -180,6 +181,7 @@ class ResearchOrchestratorTest {
                 0L,
                 0L,
                 parallelProviders,
+                0,
                 Map.of()
         );
     }
