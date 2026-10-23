@@ -7,6 +7,12 @@ spring:
 research:
   runner:
     enabled: true
+  # Análise offline dos results.jsonl (use scripts/analyze.sh; desliga o runner de coleta).
+  analysis:
+    enabled: false
+    # Vazio = pasta mais recente em output/ que contenha results.jsonl
+    input-directory:
+    output-subdirectory: analysis
   # Com 500 repetições × 2 perguntas × 7 LLMs ≈ 7000 chamadas (horas de execução).
   repetitions: 1
   questions-file: ./config/questions.csv

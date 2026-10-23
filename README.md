@@ -144,6 +144,30 @@ O nome da pasta é a data/hora: `AAAAMMDD-HHmmss`.
 
 Execuções antigas **não** são apagadas.
 
+### 8. Analise os dados coletados (sem chamar APIs)
+
+Depois de ter pelo menos uma pasta em `output/` com `results.jsonl`:
+
+```bash
+# Última execução
+bash ./scripts/analyze.sh
+
+# Ou uma pasta específica
+bash ./scripts/analyze.sh ./output/20261022-172142
+```
+
+Isso gera em `output/<execução>/analysis/`:
+
+| Arquivo | Conteúdo |
+|---------|----------|
+| `report.md` | Resumo legível (operacional, assimetria Lula×Bolsonaro, acordo entre modelos) |
+| `provider_metrics.csv` | Taxa de sucesso, latência, tamanho e diversidade lexical por provedor |
+| `pair_asymmetry.csv` | Comparação Lula vs Bolsonaro no mesmo modelo (tamanho, Jaccard, menções cruzadas) |
+| `inter_model_agreement.csv` | Jaccard par a par entre provedores (mesma pergunta) |
+| `question_agreement.csv` | Média/mín/máx de acordo lexical por pergunta |
+
+As métricas são **descritivas** (comprimento, sobreposição de vocabulário, menções). Não classificam “vies” político automaticamente.
+
 ---
 
 ## Como habilitar outros modelos
@@ -213,6 +237,9 @@ Uma falha em uma pergunta **não** cancela o resto da execução. O que já foi 
 ```bash
 # Rodar o experimento (recomendado)
 bash ./scripts/run.sh
+
+# Analisar results.jsonl já coletados (sem chamar APIs)
+bash ./scripts/analyze.sh
 
 # Só compilar / testar (sem chamar APIs pagas, se nenhum provedor estiver ativo nos testes)
 bash ./mvnw clean test
